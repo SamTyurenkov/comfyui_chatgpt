@@ -1,0 +1,15 @@
+[project]
+name = "chatgpt"
+description = "Chat GPT Image Generation Chat Node for Comfy UI"
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["Pillow", "openai", "numpy", "torchvision", "dotenv"]
+
+[project.urls]
+Repository = "https://github.com/SamTyurenkov/comfyui_chatgpt"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "comfyui_chatgpt"
+Icon = ""
