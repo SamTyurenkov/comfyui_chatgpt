@@ -1,0 +1,5 @@
+Pillow
+openai
+numpy
+torchvision
+dotenv
