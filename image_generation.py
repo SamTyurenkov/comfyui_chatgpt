@@ -130,7 +130,6 @@ class ChatGPTImageGenerationNode:
         response = client.responses.create(
             **request_args
         )
-        print(response)
 
         image_data = [
             output.result
