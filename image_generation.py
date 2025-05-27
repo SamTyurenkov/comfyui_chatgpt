@@ -15,7 +15,7 @@ class ImageToBase64:
     @classmethod
     def INPUT_TYPES(s):
         return {
-        "required": {
+        "optional": {
             "image": ("IMAGE",),
         },
         }
@@ -42,9 +42,15 @@ class ImageToBase64:
 class ChatGPTImageGenerationNode:
     @classmethod
     def INPUT_TYPES(cls):
+        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024"]
+        MODERATION_MODES = ["auto", "low"]
+        QUALITY_MODES = ["auto", "low", "medium", "high"]
         return {
             "required": {
-                "prompt": ("STRING", {"default": "Generate image based on provided image(s).", "multiline": True})
+                "prompt": ("STRING", {"default": "Generate image based on provided image(s).", "multiline": True}),
+                "size": (SIZE_MODES, {"default":"auto"}),
+                "moderation": (MODERATION_MODES, {"default":"auto"}),
+                "quality": (QUALITY_MODES, {"default":"auto"})
             },
             "optional": {
                 "image1": ("STRING",),
@@ -58,7 +64,7 @@ class ChatGPTImageGenerationNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, image1=None, image2=None, response_id=None):
+    def request(self, prompt, size, moderation, quality, image1=None, image2=None, response_id=None):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -108,7 +114,14 @@ class ChatGPTImageGenerationNode:
         request_args = {
             "model":"gpt-4.1-mini",
             "input":messages,
-            "tools":[{"type": "image_generation"}]
+            "tools":[
+                {
+                    "type": "image_generation",
+                    "size": size,
+                    "moderation": moderation,
+                    "quality": quality
+                 }
+            ]
         }
 
         if response_id:
