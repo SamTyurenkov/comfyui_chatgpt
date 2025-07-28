@@ -153,10 +153,14 @@ class ChatGPTImageEditNode:
     def INPUT_TYPES(cls):
         SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024"]
         MODERATION_MODES = ["auto", "low"]
+        QUALITY_MODES = ["auto", "low", "medium", "high"]
+        INPUT_FIDELITY_MODES = ["high", "low"]
         return {
             "required": {
                 "prompt": ("STRING", {"default": "Edit image according to this prompt.", "multiline": True}),
-                "size": (SIZE_MODES, {"default":"auto"})
+                "size": (SIZE_MODES, {"default":"auto"}),
+                "quality": (QUALITY_MODES, {"default":"auto"}),
+                "input_fidelity": (INPUT_FIDELITY_MODES, {"default":"low"})
             },
             "optional": {
                 "image1": ("STRING",),
