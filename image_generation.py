@@ -146,3 +146,74 @@ class ChatGPTImageGenerationNode:
 
         result = str(response)
         return (output_t, result, response.id)
+
+
+class ChatGPTImageEditNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024"]
+        MODERATION_MODES = ["auto", "low"]
+        return {
+            "required": {
+                "prompt": ("STRING", {"default": "Edit image according to this prompt.", "multiline": True}),
+                "size": (SIZE_MODES, {"default":"auto"})
+            },
+            "optional": {
+                "image1": ("STRING",),
+                "image2": ("STRING",)
+            }
+        }
+    RETURN_TYPES = ("IMAGE", "STRING")
+    FUNCTION = "request"
+
+    def tensor2pil(image):
+        return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
+
+    def request(self, prompt, size, image1=None, image2=None):
+
+        # Create a black 1x1 pixel image as placeholder
+        def empty_image():
+            img = Image.new("RGB", (1, 1))
+            return pil2tensor(img)
+    
+        # Helper function to process an image tensor
+        def pil2tensor(image):
+            return torch.from_numpy(numpy.array(image).astype(numpy.float32) / 255.0).unsqueeze(0)
+        
+        def base64_to_image(image_base64):
+            image_bytes = base64.b64decode(image_base64)
+            image_data = Image.open(BytesIO(image_bytes))
+            return image_data
+
+        def base64_to_file(b64_string):
+            file = BytesIO(base64.b64decode(b64_string))
+            file.name = "image.png"
+            return file
+        
+        client = OpenAI(
+            api_key=os.environ.get("OPENAI_API_KEY"),
+        )
+
+        images = []
+        if image1:
+            images.append(base64_to_file(image1))
+        if image2:
+            images.append(base64_to_file(image2))
+
+        request_args = {
+            "model":"gpt-image-1",
+            "prompt": prompt,
+            "size": size,
+            "image": images
+        }
+
+        response = client.images.edit(
+            **request_args
+        )
+
+        image_base64 = response.data[0].b64_json
+        image_data = base64_to_image(image_base64)
+        output_t = pil2tensor(image_data)
+
+        result = str(response)
+        return (output_t, result)
