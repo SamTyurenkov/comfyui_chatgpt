@@ -173,7 +173,7 @@ class ChatGPTImageEditNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, size, image1=None, image2=None):
+    def request(self, prompt, size, quality, input_fidelity, image1=None, image2=None):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -208,7 +208,9 @@ class ChatGPTImageEditNode:
             "model":"gpt-image-1",
             "prompt": prompt,
             "size": size,
-            "image": images
+            "image": images,
+            "quality": quality,
+            "input_fidelity": input_fidelity
         }
 
         response = client.images.edit(
