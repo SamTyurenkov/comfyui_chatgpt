@@ -1,7 +1,7 @@
 [project]
 name = "chatgpt"
 description = "Chat GPT Image Generation Chat Node for Comfy UI"
-version = "1.0.0"
+version = "1.0.1"
 license = {file = "LICENSE"}
 dependencies = ["Pillow", "openai", "numpy", "torchvision", "dotenv"]
 
