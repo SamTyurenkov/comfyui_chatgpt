@@ -27,6 +27,18 @@ class BananaImageGenerationNode:
             "optional": {
                 "image1": ("STRING",),
                 "image2": ("STRING",),
+                "image3": ("STRING",),
+                "image4": ("STRING",),
+                "image5": ("STRING",),
+                "image6": ("STRING",),
+                "image7": ("STRING",),
+                "image8": ("STRING",),
+                "image9": ("STRING",),
+                "image10": ("STRING",),
+                "image11": ("STRING",),
+                "image12": ("STRING",),
+                "image13": ("STRING",),
+                "image14": ("STRING",),
                 "response_id": ("STRING",),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
@@ -37,7 +49,7 @@ class BananaImageGenerationNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, aspect_ratio, resolution, image1=None, image2=None, response_id=None, seed=0):
+    def request(self, prompt, aspect_ratio, resolution, image1=None, image2=None, image3=None, image4=None, image5=None, image6=None, image7=None, image8=None, image9=None, image10=None, image11=None, image12=None, image13=None, image14=None, response_id=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -69,23 +81,19 @@ class BananaImageGenerationNode:
         contents = []
         
         # Add images if provided (convert base64 to bytes and use types.Part.from_bytes)
-        if image1 and not response_id:
-            image_bytes = base64.b64decode(image1)
-            contents.append(
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type='image/png',
+        input_images = [
+            image1, image2, image3, image4, image5, image6, image7, image8,
+            image9, image10, image11, image12, image13, image14,
+        ]
+        for input_image in input_images:
+            if input_image and not response_id:
+                image_bytes = base64.b64decode(input_image)
+                contents.append(
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type='image/png',
+                    )
                 )
-            )
-        
-        if image2 and not response_id:
-            image_bytes = base64.b64decode(image2)
-            contents.append(
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type='image/png',
-                )
-            )
         
         # Add text prompt
         contents.append(prompt)
@@ -119,7 +127,11 @@ class BananaImageGenerationNode:
                             category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
                             threshold=types.HarmBlockThreshold.OFF,
                         ),
-                    ]
+                    ],
+                    thinking_config=types.ThinkingConfig(
+                        #thinking_level="High",
+                        include_thoughts=True
+                    ),
                 )
             )
             
@@ -194,6 +206,18 @@ class BananaImageEditNode:
             "optional": {
                 "image1": ("STRING",),
                 "image2": ("STRING",),
+                "image3": ("STRING",),
+                "image4": ("STRING",),
+                "image5": ("STRING",),
+                "image6": ("STRING",),
+                "image7": ("STRING",),
+                "image8": ("STRING",),
+                "image9": ("STRING",),
+                "image10": ("STRING",),
+                "image11": ("STRING",),
+                "image12": ("STRING",),
+                "image13": ("STRING",),
+                "image14": ("STRING",),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
         }
@@ -203,7 +227,7 @@ class BananaImageEditNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, aspect_ratio, resolution, image1=None, image2=None, seed=0):
+    def request(self, prompt, aspect_ratio, resolution, image1=None, image2=None, image3=None, image4=None, image5=None, image6=None, image7=None, image8=None, image9=None, image10=None, image11=None, image12=None, image13=None, image14=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -234,23 +258,19 @@ class BananaImageEditNode:
         # Build contents list with images using types.Part.from_bytes() and edit prompt
         contents = []
         
-        if image1:
-            image_bytes = base64.b64decode(image1)
-            contents.append(
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type='image/png',
+        input_images = [
+            image1, image2, image3, image4, image5, image6, image7, image8,
+            image9, image10, image11, image12, image13, image14,
+        ]
+        for input_image in input_images:
+            if input_image:
+                image_bytes = base64.b64decode(input_image)
+                contents.append(
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type='image/png',
+                    )
                 )
-            )
-        
-        if image2:
-            image_bytes = base64.b64decode(image2)
-            contents.append(
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type='image/png',
-                )
-            )
         
         # Add edit prompt
         contents.append(prompt)
@@ -284,7 +304,11 @@ class BananaImageEditNode:
                             category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
                             threshold=types.HarmBlockThreshold.OFF,
                         ),
-                    ]
+                    ],
+                    thinking_config=types.ThinkingConfig(
+                        #thinking_level="High",
+                        include_thoughts=True
+                    ),
                 )
             )
             
