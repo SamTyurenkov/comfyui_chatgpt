@@ -28,7 +28,8 @@ class ChatGPTImageGenerationNode:
             "optional": {
                 "image1": ("STRING",),
                 "image2": ("STRING",),
-                "response_id": ("STRING",)
+                "response_id": ("STRING",),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
         }
     RETURN_TYPES = ("IMAGE", "STRING", "STRING")
@@ -37,7 +38,7 @@ class ChatGPTImageGenerationNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, size, moderation, quality, image1=None, image2=None, response_id=None):
+    def request(self, prompt, size, moderation, quality, image1=None, image2=None, response_id=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -128,16 +129,19 @@ class ChatGPTImageEditNode:
         MODERATION_MODES = ["auto", "low"]
         QUALITY_MODES = ["auto", "low", "medium", "high"]
         INPUT_FIDELITY_MODES = ["high", "low"]
+        IMAGE_MODELS = ["gpt-image-1", "gpt-image-1.5"]
         return {
             "required": {
                 "prompt": ("STRING", {"default": "Edit image according to this prompt.", "multiline": True}),
+                "model": (IMAGE_MODELS, {"default": "gpt-image-1"}),
                 "size": (SIZE_MODES, {"default":"auto"}),
                 "quality": (QUALITY_MODES, {"default":"auto"}),
                 "input_fidelity": (INPUT_FIDELITY_MODES, {"default":"low"})
             },
             "optional": {
                 "image1": ("STRING",),
-                "image2": ("STRING",)
+                "image2": ("STRING",),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
         }
     RETURN_TYPES = ("IMAGE", "STRING")
@@ -146,7 +150,7 @@ class ChatGPTImageEditNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, size, quality, input_fidelity, image1=None, image2=None):
+    def request(self, prompt, model, size, quality, input_fidelity, image1=None, image2=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -178,7 +182,7 @@ class ChatGPTImageEditNode:
             images.append(base64_to_file(image2))
 
         request_args = {
-            "model":"gpt-image-1",
+            "model": model,
             "prompt": prompt,
             "size": size,
             "image": images,
