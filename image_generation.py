@@ -1,7 +1,7 @@
 import base64
 import os
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 import numpy
 from openai import OpenAI
 import torch
@@ -141,6 +141,7 @@ class ChatGPTImageEditNode:
             "optional": {
                 "image1": ("STRING",),
                 "image2": ("STRING",),
+                "mask": ("STRING",),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
         }
@@ -150,7 +151,7 @@ class ChatGPTImageEditNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, model, size, quality, input_fidelity, image1=None, image2=None, seed=0):
+    def request(self, prompt, model, size, quality, input_fidelity, image1=None, image2=None, mask=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -170,6 +171,28 @@ class ChatGPTImageEditNode:
             file = BytesIO(base64.b64decode(b64_string))
             file.name = "image.png"
             return file
+
+        def mask_b64_to_file(b64_string):
+            raw = Image.open(BytesIO(base64.b64decode(b64_string)))
+            if raw.mode in ("RGBA", "LA"):
+                mask_rgba = raw.convert("RGBA")
+            else:
+                mask_l = raw.convert("L")
+                alpha = ImageOps.invert(mask_l)
+                mask_rgba = Image.merge(
+                    "RGBA",
+                    (
+                        Image.new("L", mask_l.size, 255),
+                        Image.new("L", mask_l.size, 255),
+                        Image.new("L", mask_l.size, 255),
+                        alpha,
+                    ),
+                )
+            buf = BytesIO()
+            mask_rgba.save(buf, format="PNG")
+            buf.seek(0)
+            buf.name = "mask.png"
+            return buf
         
         client = OpenAI(
             api_key=os.environ.get("OPENAI_API_KEY"),
@@ -189,6 +212,8 @@ class ChatGPTImageEditNode:
             "quality": quality,
             "input_fidelity": input_fidelity
         }
+        if mask:
+            request_args["mask"] = mask_b64_to_file(mask)
 
         response = client.images.edit(
             **request_args
