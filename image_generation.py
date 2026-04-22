@@ -18,9 +18,24 @@ class ChatGPTImageGenerationNode:
         SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024"]
         MODERATION_MODES = ["auto", "low"]
         QUALITY_MODES = ["auto", "low", "medium", "high"]
+        IMAGE_TOOL_MODELS = [
+            "gpt-5.4",
+            "gpt-5.2",
+            "gpt-5",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5-nano",
+            "o3",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4o",
+            "gpt-4o-mini",
+        ]
         return {
             "required": {
                 "prompt": ("STRING", {"default": "Generate image based on provided image(s).", "multiline": True}),
+                "model": (IMAGE_TOOL_MODELS, {"default": "gpt-4.1-mini"}),
                 "size": (SIZE_MODES, {"default":"auto"}),
                 "moderation": (MODERATION_MODES, {"default":"auto"}),
                 "quality": (QUALITY_MODES, {"default":"auto"})
@@ -38,7 +53,7 @@ class ChatGPTImageGenerationNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, size, moderation, quality, image1=None, image2=None, response_id=None, seed=0):
+    def request(self, prompt, model, size, moderation, quality, image1=None, image2=None, response_id=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -51,7 +66,7 @@ class ChatGPTImageGenerationNode:
         
         def base64_to_image(image_base64):
             image_bytes = base64.b64decode(image_base64)
-            image_data = Image.open(BytesIO(image_bytes))
+            image_data = ImageOps.exif_transpose(Image.open(BytesIO(image_bytes))).convert("RGB")
             return image_data
         
         client = OpenAI(
@@ -86,7 +101,7 @@ class ChatGPTImageGenerationNode:
             messages[1]["content"].append({"type": "input_text", "text": prompt})
 
         request_args = {
-            "model":"gpt-4.1-mini",
+            "model": model,
             "input":messages,
             "tools":[
                 {
@@ -105,21 +120,101 @@ class ChatGPTImageGenerationNode:
             **request_args
         )
 
-        image_data = [
+        image_results = [
             output.result
             for output in response.output
             if output.type == "image_generation_call"
         ]
         
-        if image_data:
-            image_base64 = image_data[0]
-            image_data = base64_to_image(image_base64)
-            output_t = pil2tensor(image_data)
+        if image_results:
+            output_t = torch.cat(
+                [pil2tensor(base64_to_image(image_base64)) for image_base64 in image_results],
+                dim=0,
+            )
         else:
             output_t = empty_image()
 
         result = str(response)
         return (output_t, result, response.id)
+
+
+class ChatGPTImageModelGenerationNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024"]
+        MODERATION_MODES = ["auto", "low"]
+        QUALITY_MODES = ["auto", "low", "medium", "high"]
+        IMAGE_MODELS = ["gpt-image-1", "gpt-image-1.5", "gpt-image-2"]
+        return {
+            "required": {
+                "prompt": ("STRING", {"default": "Generate image according to this prompt.", "multiline": True}),
+                "model": (IMAGE_MODELS, {"default": "gpt-image-2"}),
+                "size": (SIZE_MODES, {"default":"auto"}),
+                "moderation": (MODERATION_MODES, {"default":"auto"}),
+                "quality": (QUALITY_MODES, {"default":"auto"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 8}),
+            },
+            "optional": {
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
+            }
+        }
+    RETURN_TYPES = ("IMAGE", "STRING")
+    FUNCTION = "request"
+
+    def tensor2pil(image):
+        return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
+
+    def request(self, prompt, model, size, moderation, quality, n, seed=0):
+
+        # Create a black 1x1 pixel image as placeholder
+        def empty_image():
+            img = Image.new("RGB", (1, 1))
+            return pil2tensor(img)
+    
+        # Helper function to process an image tensor
+        def pil2tensor(image):
+            return torch.from_numpy(numpy.array(image).astype(numpy.float32) / 255.0).unsqueeze(0)
+        
+        def base64_to_image(image_base64):
+            image_bytes = base64.b64decode(image_base64)
+            image_data = ImageOps.exif_transpose(Image.open(BytesIO(image_bytes))).convert("RGB")
+            return image_data
+        
+        client = OpenAI(
+            api_key=os.environ.get("OPENAI_API_KEY"),
+        )
+
+        request_args = {
+            "model": model,
+            "prompt": prompt,
+            "size": size,
+            "moderation": moderation,
+            "quality": quality,
+            "n": n,
+        }
+        if seed:
+            request_args["seed"] = seed
+
+        response = client.images.generate(
+            **request_args
+        )
+
+        image_results = [
+            item.b64_json
+            for item in response.data
+            if getattr(item, "b64_json", None)
+        ]
+
+        if image_results:
+            output_t = torch.cat(
+                [pil2tensor(base64_to_image(image_base64)) for image_base64 in image_results],
+                dim=0,
+            )
+        else:
+            output_t = empty_image()
+
+        result = str(response)
+        return (output_t, result)
 
 
 class ChatGPTImageEditNode:
@@ -129,14 +224,15 @@ class ChatGPTImageEditNode:
         MODERATION_MODES = ["auto", "low"]
         QUALITY_MODES = ["auto", "low", "medium", "high"]
         INPUT_FIDELITY_MODES = ["high", "low"]
-        IMAGE_MODELS = ["gpt-image-1", "gpt-image-1.5"]
+        IMAGE_MODELS = ["gpt-image-1", "gpt-image-1.5", "gpt-image-2"]
         return {
             "required": {
                 "prompt": ("STRING", {"default": "Edit image according to this prompt.", "multiline": True}),
-                "model": (IMAGE_MODELS, {"default": "gpt-image-1"}),
+                "model": (IMAGE_MODELS, {"default": "gpt-image-2"}),
                 "size": (SIZE_MODES, {"default":"auto"}),
                 "quality": (QUALITY_MODES, {"default":"auto"}),
-                "input_fidelity": (INPUT_FIDELITY_MODES, {"default":"low"})
+                "input_fidelity": (INPUT_FIDELITY_MODES, {"default":"low"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 8})
             },
             "optional": {
                 "image1": ("STRING",),
@@ -151,7 +247,7 @@ class ChatGPTImageEditNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, model, size, quality, input_fidelity, image1=None, image2=None, mask=None, seed=0):
+    def request(self, prompt, model, size, quality, input_fidelity, n, image1=None, image2=None, mask=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -164,7 +260,7 @@ class ChatGPTImageEditNode:
         
         def base64_to_image(image_base64):
             image_bytes = base64.b64decode(image_base64)
-            image_data = Image.open(BytesIO(image_bytes))
+            image_data = ImageOps.exif_transpose(Image.open(BytesIO(image_bytes))).convert("RGB")
             return image_data
 
         def base64_to_file(b64_string):
@@ -210,8 +306,10 @@ class ChatGPTImageEditNode:
             "size": size,
             "image": images,
             "quality": quality,
-            "input_fidelity": input_fidelity
+            "n": n,
         }
+        if model != "gpt-image-2":
+            request_args["input_fidelity"] = input_fidelity
         if mask:
             request_args["mask"] = mask_b64_to_file(mask)
 
@@ -219,9 +317,19 @@ class ChatGPTImageEditNode:
             **request_args
         )
 
-        image_base64 = response.data[0].b64_json
-        image_data = base64_to_image(image_base64)
-        output_t = pil2tensor(image_data)
+        image_results = [
+            item.b64_json
+            for item in response.data
+            if getattr(item, "b64_json", None)
+        ]
+
+        if image_results:
+            output_t = torch.cat(
+                [pil2tensor(base64_to_image(image_base64)) for image_base64 in image_results],
+                dim=0,
+            )
+        else:
+            output_t = empty_image()
 
         result = str(response)
         return (output_t, result)
