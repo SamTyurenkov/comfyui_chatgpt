@@ -141,7 +141,7 @@ class ChatGPTImageGenerationNode:
 class ChatGPTImageModelGenerationNode:
     @classmethod
     def INPUT_TYPES(cls):
-        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024"]
+        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024", "2048x1024", "2048x2048", "3840x2160", "2160x3840"]
         MODERATION_MODES = ["auto", "low"]
         QUALITY_MODES = ["auto", "low", "medium", "high"]
         IMAGE_MODELS = ["gpt-image-1", "gpt-image-1.5", "gpt-image-2"]
@@ -220,7 +220,7 @@ class ChatGPTImageModelGenerationNode:
 class ChatGPTImageEditNode:
     @classmethod
     def INPUT_TYPES(cls):
-        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024"]
+        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024", "2048x1024", "2048x2048", "3840x2160", "2160x3840"]
         MODERATION_MODES = ["auto", "low"]
         QUALITY_MODES = ["auto", "low", "medium", "high"]
         INPUT_FIDELITY_MODES = ["high", "low"]
