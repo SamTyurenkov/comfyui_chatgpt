@@ -237,6 +237,8 @@ class ChatGPTImageEditNode:
             "optional": {
                 "image1": ("STRING",),
                 "image2": ("STRING",),
+                "image3": ("STRING",),
+                "image4": ("STRING",),
                 "mask": ("STRING",),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
@@ -247,7 +249,7 @@ class ChatGPTImageEditNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, model, size, quality, input_fidelity, n, image1=None, image2=None, mask=None, seed=0):
+    def request(self, prompt, model, size, quality, input_fidelity, n, image1=None, image2=None, image3=None, image4=None, mask=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -299,6 +301,10 @@ class ChatGPTImageEditNode:
             images.append(base64_to_file(image1))
         if image2:
             images.append(base64_to_file(image2))
+        if image3:
+            images.append(base64_to_file(image3))
+        if image4:
+            images.append(base64_to_file(image4))
 
         request_args = {
             "model": model,
