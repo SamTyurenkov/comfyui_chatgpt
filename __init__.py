@@ -1,6 +1,7 @@
 from .image_generation import ChatGPTImageGenerationNode
 from .image_generation import ChatGPTImageModelGenerationNode
 from .image_generation import ChatGPTImageEditNode
+from .text_generation import ChatGPTTextGenerationNode
 
 from .banana_generation import BananaImageGenerationNode
 from .banana_generation import BananaImageEditNode
@@ -11,6 +12,7 @@ NODE_CLASS_MAPPINGS = {
     "ChatGPTImageGenerationNode": ChatGPTImageGenerationNode,
     "ChatGPTImageModelGenerationNode": ChatGPTImageModelGenerationNode,
     "ChatGPTImageEditNode": ChatGPTImageEditNode,
+    "ChatGPTTextGenerationNode": ChatGPTTextGenerationNode,
     "BananaImageGenerationNode": BananaImageGenerationNode,
     "BananaImageEditNode": BananaImageEditNode,
     "ImageToBase64": ImageToBase64
@@ -20,6 +22,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ChatGPTImageGenerationNode": "Chat GPT Image Generation Node",
     "ChatGPTImageModelGenerationNode": "Chat GPT Image Model Generation Node",
     "ChatGPTImageEditNode": "Chat GPT Image Edit Node",
+    "ChatGPTTextGenerationNode": "Chat GPT Text Generation Node",
     "BananaImageGenerationNode": "Banana Image Generation Node",
     "BananaImageEditNode": "Banana Image Edit Node",
     "ImageToBase64": "Convert Image to Base64"
