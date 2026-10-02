@@ -1,0 +1,146 @@
+.workflow-chat {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    color: var(--fg-color, #ddd);
+    background: var(--comfy-menu-bg, #202020);
+}
+
+.workflow-chat__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px;
+    border-bottom: 1px solid var(--border-color, #3a3a3a);
+}
+
+.workflow-chat__header div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.workflow-chat__header strong {
+    font-size: 15px;
+}
+
+.workflow-chat__header span {
+    margin-top: 3px;
+    color: var(--input-text, #aaa);
+    font-size: 11px;
+}
+
+.workflow-chat__clear,
+.workflow-chat__form button {
+    border: 1px solid var(--border-color, #4a4a4a);
+    border-radius: 6px;
+    color: inherit;
+    background: var(--comfy-input-bg, #292929);
+    cursor: pointer;
+}
+
+.workflow-chat__clear {
+    padding: 6px 8px;
+    font-size: 11px;
+}
+
+.workflow-chat__messages {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+.workflow-chat__empty {
+    margin: auto 8px;
+    color: var(--input-text, #999);
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.workflow-chat__message {
+    max-width: 92%;
+    padding: 9px 11px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.workflow-chat__message--user {
+    align-self: flex-end;
+    color: #fff;
+    background: #3b63d1;
+    white-space: pre-wrap;
+}
+
+.workflow-chat__message--assistant {
+    align-self: flex-start;
+    border: 1px solid var(--border-color, #3d3d3d);
+    background: var(--comfy-input-bg, #292929);
+}
+
+.workflow-chat__message--assistant > :first-child {
+    margin-top: 0;
+}
+
+.workflow-chat__message--assistant > :last-child {
+    margin-bottom: 0;
+}
+
+.workflow-chat__message pre {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.workflow-chat__status {
+    min-height: 18px;
+    padding: 0 12px;
+    color: #e6a23c;
+    font-size: 11px;
+}
+
+.workflow-chat__form {
+    display: grid;
+    gap: 8px;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--border-color, #3a3a3a);
+}
+
+.workflow-chat__form textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 70px;
+    max-height: 180px;
+    padding: 9px;
+    resize: vertical;
+    border: 1px solid var(--border-color, #4a4a4a);
+    border-radius: 7px;
+    outline: none;
+    color: inherit;
+    background: var(--comfy-input-bg, #292929);
+    font: inherit;
+}
+
+.workflow-chat__form textarea:focus {
+    border-color: #5d80df;
+}
+
+.workflow-chat__form button {
+    padding: 8px 12px;
+    font-weight: 600;
+    background: #3b63d1;
+}
+
+.workflow-chat__form button:disabled,
+.workflow-chat__clear:disabled {
+    cursor: default;
+    opacity: 0.55;
+}

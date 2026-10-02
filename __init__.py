@@ -7,6 +7,7 @@ from .banana_generation import BananaImageGenerationNode
 from .banana_generation import BananaImageEditNode
 
 from .utils import ImageToBase64
+from . import workflow_chat as _workflow_chat
 
 NODE_CLASS_MAPPINGS = {
     "ChatGPTImageGenerationNode": ChatGPTImageGenerationNode,
@@ -27,3 +28,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BananaImageEditNode": "Banana Image Edit Node",
     "ImageToBase64": "Convert Image to Base64"
 }
+
+WEB_DIRECTORY = "./web"
