@@ -22,6 +22,34 @@ function currentWorkflow() {
     return workflow;
 }
 
+function currentErrorContext() {
+    const extensionManager = app.extensionManager;
+    return {
+        node_errors: extensionManager?.lastNodeErrors ?? app.lastNodeErrors ?? null,
+        execution_error: extensionManager?.lastExecutionError ?? null,
+    };
+}
+
+function currentGraphDiagnostics() {
+    return {
+        unconnected_inputs: (app.graph?._nodes ?? []).flatMap((node) => {
+            const requiredInputs = new Set(
+                Object.keys(node.constructor?.nodeData?.input?.required ?? {}),
+            );
+            return (node.inputs ?? [])
+                .filter((input) => input.link == null && !input.links?.length)
+                .map((input) => ({
+                    node_id: node.id,
+                    node_type: node.type,
+                    node_title: node.title,
+                    input_name: input.name,
+                    input_type: input.type,
+                    required: requiredInputs.has(input.name),
+                }));
+        }),
+    };
+}
+
 function renderPanel(container) {
     cleanupPanel?.();
     const abortController = new AbortController();
@@ -108,7 +136,12 @@ function renderPanel(container) {
             const response = await fetch(ENDPOINT, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages, workflow }),
+                body: JSON.stringify({
+                    messages,
+                    workflow,
+                    error_context: currentErrorContext(),
+                    graph_diagnostics: currentGraphDiagnostics(),
+                }),
                 signal: abortController.signal,
             });
             const payload = await response.json().catch(() => ({}));
