@@ -32,7 +32,7 @@ function renderPanel(container) {
             <header class="workflow-chat__header">
                 <div>
                     <strong>Workflow Chat</strong>
-                    <span>Советы только по текущему workflow</span>
+                    <span>Workflow и read-only код его нод</span>
                 </div>
                 <button type="button" class="workflow-chat__clear" title="Очистить чат">
                     Очистить
