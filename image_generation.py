@@ -3,10 +3,9 @@ import os
 from io import BytesIO
 from PIL import Image, ImageOps
 import numpy
-from openai import OpenAI
 import torch
 from dotenv import load_dotenv
-from .utils import ImageToBase64
+from .utils import ImageToBase64, OpenAIClient
 
 load_dotenv()
 
@@ -69,7 +68,7 @@ class ChatGPTImageGenerationNode:
             image_data = ImageOps.exif_transpose(Image.open(BytesIO(image_bytes))).convert("RGB")
             return image_data
         
-        client = OpenAI(
+        client = OpenAIClient(
             api_key=os.environ.get("OPENAI_API_KEY"),
         )
 
@@ -180,7 +179,7 @@ class ChatGPTImageModelGenerationNode:
             image_data = ImageOps.exif_transpose(Image.open(BytesIO(image_bytes))).convert("RGB")
             return image_data
         
-        client = OpenAI(
+        client = OpenAIClient(
             api_key=os.environ.get("OPENAI_API_KEY"),
         )
 
@@ -292,7 +291,7 @@ class ChatGPTImageEditNode:
             buf.name = "mask.png"
             return buf
         
-        client = OpenAI(
+        client = OpenAIClient(
             api_key=os.environ.get("OPENAI_API_KEY"),
         )
 

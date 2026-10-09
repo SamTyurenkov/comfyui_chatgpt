@@ -1,10 +1,37 @@
 import os
 
 from dotenv import load_dotenv
-from openai import OpenAI
+
+from .utils import OpenAIClient
 
 
 load_dotenv()
+
+
+def _format_api_error(error):
+    status = getattr(error, "status_code", None)
+    message = str(error).strip() or error.__class__.__name__
+    if status == 429:
+        return f"Error: rate limit / quota exceeded (429). {message}"
+    if status is not None:
+        return f"Error: OpenAI API {status}. {message}"
+    return f"Error: {message}"
+
+
+def _extract_output_text(response):
+    text = (getattr(response, "output_text", None) or "").strip()
+    if text:
+        return text
+
+    status = getattr(response, "status", None)
+    incomplete = getattr(response, "incomplete_details", None)
+    reason = getattr(incomplete, "reason", None) if incomplete is not None else None
+    if status == "incomplete" or reason == "max_output_tokens":
+        return (
+            "Error: response was truncated (max_output_tokens). "
+            "Increase max_output_tokens or shorten the prompt."
+        )
+    return "Error: model returned an empty response."
 
 
 class ChatGPTTextGenerationNode:
@@ -65,7 +92,12 @@ class ChatGPTTextGenerationNode:
         response_id=None,
         max_output_tokens=4096,
     ):
-        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            error = "Error: OPENAI_API_KEY is not configured."
+            return (error, error, "")
+
+        client = OpenAIClient(api_key=api_key)
 
         content = [{"type": "input_text", "text": prompt}]
         for image in (image1, image2, image3, image4):
@@ -93,5 +125,11 @@ class ChatGPTTextGenerationNode:
         if response_id:
             request_args["previous_response_id"] = response_id
 
-        response = client.responses.create(**request_args)
-        return (response.output_text, str(response), response.id)
+        try:
+            response = client.responses.create(**request_args)
+        except Exception as error:
+            message = _format_api_error(error)
+            return (message, message, "")
+
+        text = _extract_output_text(response)
+        return (text, str(response), getattr(response, "id", "") or "")

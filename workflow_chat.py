@@ -6,8 +6,9 @@ from urllib.parse import urlsplit
 
 import nodes
 from aiohttp import web
-from openai import AsyncOpenAI
 from server import PromptServer
+
+from .utils import AsyncOpenAIClient
 
 
 MAX_REQUEST_BYTES = 1_000_000
@@ -372,20 +373,37 @@ async def workflow_chat(request):
     ]
 
     try:
-        client = AsyncOpenAI(api_key=api_key, timeout=90.0)
+        client = AsyncOpenAIClient(api_key=api_key, timeout=90.0)
         response, usage = await _create_advisor_response(
             client,
             os.environ.get("OPENAI_WORKFLOW_CHAT_MODEL", "gpt-5.4-mini"),
             model_input,
             allowed_node_types,
         )
-    except Exception:
-        return web.json_response(
-            {"error": "The workflow advisor is temporarily unavailable."},
-            status=502,
-        )
+    except Exception as error:
+        status_code = getattr(error, "status_code", None)
+        detail = str(error).strip() or error.__class__.__name__
+        if status_code == 429:
+            message = f"OpenAI rate limit / quota exceeded (429): {detail}"
+        elif status_code is not None:
+            message = f"OpenAI API error ({status_code}): {detail}"
+        else:
+            message = f"The workflow advisor is temporarily unavailable: {detail}"
+        return web.json_response({"error": message}, status=502)
 
     answer = (response.output_text or "").strip()
     if not answer:
+        incomplete = getattr(response, "incomplete_details", None)
+        reason = getattr(incomplete, "reason", None) if incomplete is not None else None
+        if getattr(response, "status", None) == "incomplete" or reason == "max_output_tokens":
+            return web.json_response(
+                {
+                    "error": (
+                        "The model response was truncated (max_output_tokens). "
+                        "Try a shorter question or fewer tool calls."
+                    )
+                },
+                status=502,
+            )
         return web.json_response({"error": "The model returned an empty response."}, status=502)
     return web.json_response({"answer": answer, "usage": usage})

@@ -178,7 +178,9 @@ function renderPanel(container) {
             }
         } catch (error) {
             if (error.name !== "AbortError") {
-                status.textContent = error.message || "Не удалось получить ответ.";
+                const message = error.message || "Не удалось получить ответ.";
+                addMessage("assistant", message);
+                status.textContent = message;
             }
         } finally {
             setBusy(false);

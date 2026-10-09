@@ -1,7 +1,27 @@
 import base64
 from io import BytesIO
-from PIL import Image
+
 import numpy
+from openai import AsyncOpenAI, OpenAI
+from PIL import Image
+
+
+class _SkipRateLimitRetryMixin:
+    """Keep default retries for 408/409/5xx, but never retry 429."""
+
+    def _should_retry(self, response):
+        if getattr(response, "status_code", None) == 429:
+            return False
+        return super()._should_retry(response)
+
+
+class OpenAIClient(_SkipRateLimitRetryMixin, OpenAI):
+    pass
+
+
+class AsyncOpenAIClient(_SkipRateLimitRetryMixin, AsyncOpenAI):
+    pass
+
 
 class ImageToBase64:
     @classmethod
