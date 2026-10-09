@@ -103,13 +103,20 @@ function renderPanel(container) {
         }
         messageList.appendChild(bubble);
         messageList.scrollTop = messageList.scrollHeight;
+        return bubble;
     };
 
     const setBusy = (busy) => {
         textarea.disabled = busy;
         submitButton.disabled = busy;
         submitButton.textContent = busy ? "Думаю…" : "Отправить";
-        status.textContent = busy ? "Анализирую текущий workflow…" : "";
+        if (busy) {
+            status.textContent = "Анализирую текущий workflow…";
+            status.dataset.busy = "";
+        } else if ("busy" in status.dataset) {
+            status.textContent = "";
+            delete status.dataset.busy;
+        }
     };
 
     form.addEventListener("submit", async (event) => {
@@ -149,8 +156,26 @@ function renderPanel(container) {
                 throw new Error(payload.error || `Ошибка сервера: ${response.status}`);
             }
             messages.push({ role: "assistant", content: payload.answer });
-            addMessage("assistant", payload.answer);
+            const assistantBubble = addMessage("assistant", payload.answer);
             status.textContent = "";
+            const usage = payload.usage;
+            if (usage) {
+                const format = new Intl.NumberFormat("ru-RU").format;
+                const usageLine = document.createElement("div");
+                usageLine.className = "workflow-chat__message-usage";
+                const parts = [
+                    `input ${format(usage.input_tokens)}`,
+                    `cached ${format(usage.cached_tokens)}`,
+                    `output ${format(usage.output_tokens)}`,
+                    `API ${format(usage.api_calls)}`,
+                ];
+                if (usage.estimated_cost_usd != null) {
+                    parts.push(`≈ $${usage.estimated_cost_usd.toFixed(4)}`);
+                }
+                usageLine.textContent = parts.join(" · ");
+                assistantBubble.insertAdjacentElement("afterend", usageLine);
+                messageList.scrollTop = messageList.scrollHeight;
+            }
         } catch (error) {
             if (error.name !== "AbortError") {
                 status.textContent = error.message || "Не удалось получить ответ.";

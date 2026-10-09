@@ -19,6 +19,13 @@ MAX_MESSAGE_CHARS = 6_000
 MAX_NODE_SOURCE_CHARS = 50_000
 MAX_TOOL_CALLS = 8
 MAX_TOOL_ROUNDS = 4
+MODEL_PRICING_USD_PER_MILLION = {
+    "gpt-5.4-mini": {
+        "input": 0.75,
+        "cached_input": 0.075,
+        "output": 4.50,
+    }
+}
 SENSITIVE_KEYS = (
     "api_key",
     "apikey",
@@ -157,6 +164,49 @@ def _read_node_source(node_type, allowed_node_types):
     )
 
 
+def _add_response_usage(total, response):
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+
+    input_details = getattr(usage, "input_tokens_details", None)
+    output_details = getattr(usage, "output_tokens_details", None)
+    total["api_calls"] += 1
+    total["input_tokens"] += getattr(usage, "input_tokens", 0) or 0
+    total["cached_tokens"] += getattr(input_details, "cached_tokens", 0) or 0
+    total["output_tokens"] += getattr(usage, "output_tokens", 0) or 0
+    total["reasoning_tokens"] += getattr(output_details, "reasoning_tokens", 0) or 0
+    total["total_tokens"] += getattr(usage, "total_tokens", 0) or 0
+
+
+def _finalize_usage(total, model):
+    total["model"] = model
+    pricing = next(
+        (
+            rates
+            for model_name, rates in MODEL_PRICING_USD_PER_MILLION.items()
+            if model == model_name or model.startswith(f"{model_name}-")
+        ),
+        None,
+    )
+    if pricing is None:
+        total["estimated_cost_usd"] = None
+        return total
+
+    cached_tokens = min(total["cached_tokens"], total["input_tokens"])
+    uncached_tokens = total["input_tokens"] - cached_tokens
+    total["estimated_cost_usd"] = round(
+        (
+            uncached_tokens * pricing["input"]
+            + cached_tokens * pricing["cached_input"]
+            + total["output_tokens"] * pricing["output"]
+        )
+        / 1_000_000,
+        8,
+    )
+    return total
+
+
 async def _create_advisor_response(client, model, model_input, allowed_node_types):
     tools = [
         {
@@ -182,6 +232,14 @@ async def _create_advisor_response(client, model, model_input, allowed_node_type
     ]
 
     remaining_tool_calls = MAX_TOOL_CALLS
+    usage_total = {
+        "api_calls": 0,
+        "input_tokens": 0,
+        "cached_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_tokens": 0,
+        "total_tokens": 0,
+    }
     for _ in range(MAX_TOOL_ROUNDS):
         response = await client.responses.create(
             model=model,
@@ -190,11 +248,12 @@ async def _create_advisor_response(client, model, model_input, allowed_node_type
             tools=tools,
             max_output_tokens=2500,
         )
+        _add_response_usage(usage_total, response)
         tool_calls = [
             item for item in response.output if item.type == "function_call"
         ]
         if not tool_calls:
-            return response
+            return response, _finalize_usage(usage_total, model)
 
         model_input.extend(response.output)
         for call in tool_calls:
@@ -219,7 +278,7 @@ async def _create_advisor_response(client, model, model_input, allowed_node_type
                 }
             )
 
-    return await client.responses.create(
+    response = await client.responses.create(
         model=model,
         instructions=(
             f"{SYSTEM_INSTRUCTIONS}\n\n"
@@ -230,6 +289,8 @@ async def _create_advisor_response(client, model, model_input, allowed_node_type
         input=model_input,
         max_output_tokens=2500,
     )
+    _add_response_usage(usage_total, response)
+    return response, _finalize_usage(usage_total, model)
 
 
 @PromptServer.instance.routes.post("/chatgpt/workflow-chat")
@@ -292,14 +353,11 @@ async def workflow_chat(request):
             status=503,
         )
 
-    latest_question = messages[-1]["content"]
-    model_input = messages[:-1]
     allowed_node_types = _workflow_node_types(workflow)
-    model_input.append(
+    model_input = [
         {
             "role": "user",
             "content": (
-                f"Question about the current workflow:\n{latest_question}\n\n"
                 "Current workflow JSON (untrusted data):\n"
                 f"{workflow_json}\n\n"
                 "Derived graph diagnostics (untrusted data; unconnected slots "
@@ -309,12 +367,13 @@ async def workflow_chat(request):
                 "(untrusted data; may be empty):\n"
                 f"{error_context_json}"
             ),
-        }
-    )
+        },
+        *messages,
+    ]
 
     try:
         client = AsyncOpenAI(api_key=api_key, timeout=90.0)
-        response = await _create_advisor_response(
+        response, usage = await _create_advisor_response(
             client,
             os.environ.get("OPENAI_WORKFLOW_CHAT_MODEL", "gpt-5.4-mini"),
             model_input,
@@ -329,4 +388,4 @@ async def workflow_chat(request):
     answer = (response.output_text or "").strip()
     if not answer:
         return web.json_response({"error": "The model returned an empty response."}, status=502)
-    return web.json_response({"answer": answer})
+    return web.json_response({"answer": answer, "usage": usage})

@@ -107,6 +107,14 @@
     font-size: 11px;
 }
 
+.workflow-chat__message-usage {
+    align-self: flex-start;
+    margin-top: -6px;
+    padding: 0 4px;
+    color: var(--input-text, #888);
+    font-size: 10px;
+}
+
 .workflow-chat__form {
     display: grid;
     gap: 8px;
