@@ -14,9 +14,8 @@ load_dotenv()
 class ChatGPTImageGenerationNode:
     @classmethod
     def INPUT_TYPES(cls):
-        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024"]
         MODERATION_MODES = ["auto", "low"]
-        QUALITY_MODES = ["auto", "low", "medium", "high"]
+        QUALITY_MODES = ["auto", "low", "medium", "high", "xhigh", "max"]
         IMAGE_TOOL_MODELS = [
             "gpt-5.4",
             "gpt-5.2",
@@ -31,13 +30,24 @@ class ChatGPTImageGenerationNode:
             "gpt-4o",
             "gpt-4o-mini",
         ]
+        IMAGE_TOOL_IMAGE_MODELS = [
+            "auto",
+            "gpt-image-2.5-sunburst",
+            "gpt-image-2.5-flare",
+            "gpt-image-2",
+            "gpt-image-1.5",
+            "gpt-image-1-mini",
+        ]
+        BACKGROUND_MODES = ["auto", "opaque", "transparent"]
         return {
             "required": {
                 "prompt": ("STRING", {"default": "Generate image based on provided image(s).", "multiline": True}),
                 "model": (IMAGE_TOOL_MODELS, {"default": "gpt-4.1-mini"}),
-                "size": (SIZE_MODES, {"default":"auto"}),
+                "image_model": (IMAGE_TOOL_IMAGE_MODELS, {"default": "auto"}),
+                "size": ("STRING", {"default": "auto"}),
                 "moderation": (MODERATION_MODES, {"default":"auto"}),
-                "quality": (QUALITY_MODES, {"default":"auto"})
+                "quality": (QUALITY_MODES, {"default":"auto"}),
+                "background": (BACKGROUND_MODES, {"default":"auto"})
             },
             "optional": {
                 "image1": ("STRING",),
@@ -52,7 +62,7 @@ class ChatGPTImageGenerationNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, model, size, moderation, quality, image1=None, image2=None, response_id=None, seed=0):
+    def request(self, prompt, model, image_model, size, moderation, quality, background, image1=None, image2=None, response_id=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -99,17 +109,20 @@ class ChatGPTImageGenerationNode:
         else:
             messages[1]["content"].append({"type": "input_text", "text": prompt})
 
+        image_tool = {
+            "type": "image_generation",
+            "size": size,
+            "moderation": moderation,
+            "quality": quality,
+            "background": background,
+        }
+        if image_model and image_model != "auto":
+            image_tool["model"] = image_model
+
         request_args = {
             "model": model,
             "input":messages,
-            "tools":[
-                {
-                    "type": "image_generation",
-                    "size": size,
-                    "moderation": moderation,
-                    "quality": quality
-                 }
-            ]
+            "tools":[image_tool]
         }
 
         if response_id:
@@ -140,18 +153,27 @@ class ChatGPTImageGenerationNode:
 class ChatGPTImageModelGenerationNode:
     @classmethod
     def INPUT_TYPES(cls):
-        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024", "2048x1024", "2048x2048", "3840x2160", "2160x3840"]
         MODERATION_MODES = ["auto", "low"]
-        QUALITY_MODES = ["auto", "low", "medium", "high"]
-        IMAGE_MODELS = ["gpt-image-1", "gpt-image-1.5", "gpt-image-2"]
+        QUALITY_MODES = ["auto", "low", "medium", "high", "xhigh", "max"]
+        BACKGROUND_MODES = ["auto", "opaque", "transparent"]
+        OUTPUT_FORMATS = ["png", "jpeg", "webp"]
+        IMAGE_MODELS = [
+            "gpt-image-2.5-sunburst",
+            "gpt-image-2.5-flare",
+            "gpt-image-2",
+            "gpt-image-1.5",
+            "gpt-image-1-mini",
+        ]
         return {
             "required": {
                 "prompt": ("STRING", {"default": "Generate image according to this prompt.", "multiline": True}),
-                "model": (IMAGE_MODELS, {"default": "gpt-image-2"}),
-                "size": (SIZE_MODES, {"default":"auto"}),
+                "model": (IMAGE_MODELS, {"default": "gpt-image-2.5-sunburst"}),
+                "size": ("STRING", {"default": "auto"}),
                 "moderation": (MODERATION_MODES, {"default":"auto"}),
                 "quality": (QUALITY_MODES, {"default":"auto"}),
-                "n": ("INT", {"default": 1, "min": 1, "max": 8}),
+                "background": (BACKGROUND_MODES, {"default":"auto"}),
+                "output_format": (OUTPUT_FORMATS, {"default":"png"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 10}),
             },
             "optional": {
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
@@ -163,7 +185,7 @@ class ChatGPTImageModelGenerationNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, model, size, moderation, quality, n, seed=0):
+    def request(self, prompt, model, size, moderation, quality, background, output_format, n, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -189,6 +211,8 @@ class ChatGPTImageModelGenerationNode:
             "size": size,
             "moderation": moderation,
             "quality": quality,
+            "background": background,
+            "output_format": output_format,
             "n": n,
         }
         if seed:
@@ -219,19 +243,29 @@ class ChatGPTImageModelGenerationNode:
 class ChatGPTImageEditNode:
     @classmethod
     def INPUT_TYPES(cls):
-        SIZE_MODES = ["auto","1024x1024", "1024x1536", "1536x1024", "2048x1024", "2048x2048", "3840x2160", "2160x3840"]
         MODERATION_MODES = ["auto", "low"]
-        QUALITY_MODES = ["auto", "low", "medium", "high"]
+        QUALITY_MODES = ["auto", "low", "medium", "high", "xhigh", "max"]
         INPUT_FIDELITY_MODES = ["high", "low"]
-        IMAGE_MODELS = ["gpt-image-1", "gpt-image-1.5", "gpt-image-2"]
+        BACKGROUND_MODES = ["auto", "opaque", "transparent"]
+        OUTPUT_FORMATS = ["png", "jpeg", "webp"]
+        IMAGE_MODELS = [
+            "gpt-image-2.5-sunburst",
+            "gpt-image-2.5-flare",
+            "gpt-image-2",
+            "gpt-image-1.5",
+            "gpt-image-1-mini",
+        ]
         return {
             "required": {
                 "prompt": ("STRING", {"default": "Edit image according to this prompt.", "multiline": True}),
-                "model": (IMAGE_MODELS, {"default": "gpt-image-2"}),
-                "size": (SIZE_MODES, {"default":"auto"}),
+                "model": (IMAGE_MODELS, {"default": "gpt-image-2.5-sunburst"}),
+                "size": ("STRING", {"default": "auto"}),
                 "quality": (QUALITY_MODES, {"default":"auto"}),
+                "moderation": (MODERATION_MODES, {"default":"auto"}),
                 "input_fidelity": (INPUT_FIDELITY_MODES, {"default":"low"}),
-                "n": ("INT", {"default": 1, "min": 1, "max": 8})
+                "background": (BACKGROUND_MODES, {"default":"auto"}),
+                "output_format": (OUTPUT_FORMATS, {"default":"png"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 10})
             },
             "optional": {
                 "image1": ("STRING",),
@@ -248,7 +282,7 @@ class ChatGPTImageEditNode:
     def tensor2pil(image):
         return Image.fromarray(numpy.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(numpy.uint8))
 
-    def request(self, prompt, model, size, quality, input_fidelity, n, image1=None, image2=None, image3=None, image4=None, mask=None, seed=0):
+    def request(self, prompt, model, size, quality, moderation, input_fidelity, background, output_format, n, image1=None, image2=None, image3=None, image4=None, mask=None, seed=0):
 
         # Create a black 1x1 pixel image as placeholder
         def empty_image():
@@ -311,9 +345,12 @@ class ChatGPTImageEditNode:
             "size": size,
             "image": images,
             "quality": quality,
+            "moderation": moderation,
+            "background": background,
+            "output_format": output_format,
             "n": n,
         }
-        if model != "gpt-image-2":
+        if not model.startswith("gpt-image-2"):
             request_args["input_fidelity"] = input_fidelity
         if mask:
             request_args["mask"] = mask_b64_to_file(mask)
